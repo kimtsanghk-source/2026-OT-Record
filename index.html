@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 OT Record Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <style>
+    /* 預設 Light Mode 變數 */
+    :root {
+      --bg-main: #FFFFFF;
+      --card-bg: #FFFFFF;
+      --text-dark: #333333;
+      --text-muted: #777777;
+      --border-color: #EAEAEA;
+      --accent-warm: #C2845B;       /* 陶土暖棕 (Sat OT) */
+      --accent-soft: #D9C5B2;       /* 溫潤燕麥 (Net OT) */
+      --accent-dark: #4A4A4A;       
+      --highlight: #D9534F;         /* 警示紅 */
+      --table-header: #FAFAFA;
+      --table-hover: #F9F9F9;
+      --badge-normal-bg: #F0F0F0;
+      --badge-normal-text: #4A4A4A;
+      --badge-warn-bg: #FCE8E8;
+    }
+
+    /* Dark Mode 變數 */
+    body.dark-mode {
+      --bg-main: #121212;
+      --card-bg: #1E1E1E;
+      --text-dark: #F5F5F5;
+      --text-muted: #A0A0A0;
+      --border-color: #333333;
+      --accent-dark: #F5F5F5;
+      --highlight: #FC6A67;
+      --table-header: #2A2A2A;
+      --table-hover: #262626;
+      --badge-normal-bg: #333333;
+      --badge-normal-text: #F5F5F5;
+      --badge-warn-bg: #4A2020;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-dark);
+      padding: 32px 24px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    /* 頂部排版 (包含標題與切換按鈕) */
+    .header-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 28px;
+    }
+
+    header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-dark);
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    /* Dark Mode Toggle Button */
+    .theme-toggle {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-dark);
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    .theme-toggle:hover {
+      background: var(--border-color);
+    }
+
+    /* KPI 卡片 */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .kpi-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-dark);
+      margin-top: 8px;
+    }
+
+    .kpi-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* 圖表區域 */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    @media (max-width: 900px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .chart-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 16px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+
+    /* 表格區 */
+    .table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 2px solid var(--border-color);
+      background-color: var(--table-header);
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-dark);
+      transition: border-color 0.3s, color 0.3s;
+    }
+
+    tr:hover td {
+      background-color: var(--table-hover);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-normal {
+      background: var(--badge-normal-bg);
+      color: var(--badge-normal-text);
+    }
+
+    .badge-warning {
+      background: var(--badge-warn-bg);
+      color: var(--highlight);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-wrapper">
+      <header>
+        <h1>2026 加班工時分析儀表板 (OT Record)</h1>
+        <p>2026年 1月 - 7月 | 總員工 (89人) 不包括 JJM , VAS , Facility , Abbott YL , Baxter CS</p>
+      </header>
+      <button id="themeToggle" class="theme-toggle">
+        🌙 Dark Mode
+      </button>
+    </div>
+
+    <!-- KPI 概覽 -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-title">2026 上半年總加班時數</div>
+        <div class="kpi-value">12,138 <span style="font-size: 16px;">hrs</span></div>
+        <div class="kpi-subtext">Net OT: 9,497 h | Sat OT: 2,641 h</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">月均單人加班時數</div>
+        <div class="kpi-value">19.5 <span style="font-size: 16px;">hrs / month</span></div>
+        <div class="kpi-subtext">以 89 名經常 OT 員工計算</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">7月份超時預警人數 (＞30h)</div>
+        <div class="kpi-value" style="color: var(--highlight);">17 <span style="font-size: 16px;">人</span></div>
+        <div class="kpi-subtext" style="color: var(--highlight);">需優先關注部門人力負荷</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">OT 負荷最重團隊</div>
+        <div class="kpi-value" style="font-size: 24px; padding-top: 4px;">Baxter PD</div>
+        <div class="kpi-subtext">月均每人 74.8 小時</div>
+      </div>
+    </div>
+
+    <!-- 圖表區 -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">2026 月度加班時數走勢</div>
+        <div class="chart-wrapper">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">累積總 OT 最高 Top 5 員工</div>
+        <div class="chart-wrapper">
+          <canvas id="topStaffChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 表格區 -->
+    <div class="table-card">
+      <div class="chart-title">最新狀態：7月份重點人員 OT 追蹤清單</div>
+      <table>
+        <thead>
+          <tr>
+            <th>員工編號</th>
+            <th>員工姓名</th>
+            <th>所屬部門 (Team)</th>
+            <th>7月份 OT 時數</th>
+            <th>負荷狀態</th>
+          </tr>
+        </thead>
+        <tbody id="otTableBody">
+          <!-- 數據由 JS 動態生成 -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    Chart.register(ChartDataLabels);
+
+    // 1. 月度趨勢圖
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    const trendChart = new Chart(trendCtx, {
+      type: 'bar',
+      data: {
+        labels: ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07'],
+        datasets: [
+          {
+            label: 'Net OT',
+            data: [1477.25, 1270.25, 1332.25, 1256.25, 1348.05, 1392.95, 1420.75],
+            backgroundColor: '#D9C5B2',
+          },
+          {
+            label: 'Sat/Holiday OT',
+            data: [427.0, 369.5, 447.5, 266.5, 467.5, 338.0, 325.0],
+            backgroundColor: '#C2845B',
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { color: '#777777' } },
+          y: { stacked: true, grid: { color: '#EAEAEA' }, ticks: { color: '#777777' } }
+        },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#777777', font: { size: 12 } } },
+          datalabels: {
+            color: '#FFFFFF',
+            font: { weight: 'bold', size: 11 },
+            formatter: (value) => Math.round(value)
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            titleFont: { size: 14 },
+            bodyFont: { size: 13 }
+          }
+        }
+      }
+    });
+
+    // 2. Top 5 員工累積 OT 圖表
+    const topStaffCtx = document.getElementById('topStaffChart').getContext('2d');
+    const topStaffChart = new Chart(topStaffCtx, {
+      type: 'bar',
+      data: {
+        labels: ['王家豪', '鍾芷惠', '周傑輝', 'Yu Yingxi', 'Huang Hongda'],
+        datasets: [{
+          label: '1-7月累積 OT (Hrs)',
+          data: [862.0, 798.0, 795.75, 669.25, 487.25],
+          backgroundColor: '#D9534F',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            anchor: 'end',
+            align: 'left',
+            color: '#FFFFFF',
+            font: { weight: 'bold', size: 12 },
+            padding: { right: 8 }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            titleFont: { size: 14 },
+            bodyFont: { size: 13 }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { display: false } },
+          y: { grid: { display: false }, ticks: { color: '#777777' } }
+        }
+      }
+    });
+
+    // 3. 自動輪播 (Auto Loop Tooltips) 邏輯 - 每 2 秒觸發一次
+    let trendIndex = 0;
+    let staffIndex = 0;
+
+    setInterval(() => {
+      if (trendChart.data.labels.length > 0) {
+        trendChart.setActiveElements([
+          { datasetIndex: 0, index: trendIndex },
+          { datasetIndex: 1, index: trendIndex }
+        ]);
+        trendChart.tooltip.setActiveElements([
+          { datasetIndex: 0, index: trendIndex },
+          { datasetIndex: 1, index: trendIndex }
+        ], { x: 0, y: 0 });
+        trendChart.update();
+        trendIndex = (trendIndex + 1) % trendChart.data.labels.length;
+      }
+
+      if (topStaffChart.data.labels.length > 0) {
+        topStaffChart.setActiveElements([
+          { datasetIndex: 0, index: staffIndex }
+        ]);
+        topStaffChart.tooltip.setActiveElements([
+          { datasetIndex: 0, index: staffIndex }
+        ], { x: 0, y: 0 });
+        topStaffChart.update();
+        staffIndex = (staffIndex + 1) % topStaffChart.data.labels.length;
+      }
+    }, 2000);
+
+    // 4. 7月份 最新 OT 數據表
+    const latestMonthData = [
+      {'id': '189927', 'name': 'Wong Ka Ho 王家豪', 'team': 'Baxter PD', 'ot': 143.5, 'status': '負荷過高'}, 
+      {'id': '300104', 'name': 'Chau Kit Fai 周傑輝', 'team': 'Baxter PD', 'ot': 125.5, 'status': '負荷過高'}, 
+      {'id': '204731', 'name': 'Chung Tsz Wai 鍾芷惠', 'team': 'Return', 'ot': 113.0, 'status': '負荷過高'}, 
+      {'id': '302160', 'name': 'Yu,Yingxi', 'team': 'Baxter PD', 'ot': 112.0, 'status': '負荷過高'}, 
+      {'id': '301209', 'name': 'Huang, Hongda', 'team': 'Baxter (HD+MD)', 'ot': 70.5, 'status': '負荷過高'}, 
+      {'id': '192600', 'name': 'Chong Leung Ka 莊良嘉', 'team': 'Baxter PD', 'ot': 61.25, 'status': '負荷過高'}, 
+      {'id': '188705', 'name': 'Mok Chi Tat Larry 莫志達', 'team': 'Baxter PD', 'ot': 58.75, 'status': '負荷過高'}, 
+      {'id': '189114', 'name': 'Sun Wang Fei 沈宏飛', 'team': 'Baxter (HD+MD)', 'ot': 51.5, 'status': '負荷過高'}, 
+      {'id': '194810', 'name': 'Sy Kwan Fu 施鈞富', 'team': 'Baxter PD', 'ot': 50.0, 'status': '負荷過高'}, 
+      {'id': '185197', 'name': 'Yeung Siu Kit 楊少傑', 'team': 'Pick & Pack /Cold Chain', 'ot': 47.75, 'status': '負荷過高'}
+    ];
+
+    const tableBody = document.getElementById('otTableBody');
+    latestMonthData.forEach(staff => {
+      const badgeClass = staff.status === '負荷過高' ? 'badge-warning' : 'badge-normal';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${staff.id}</strong></td>
+        <td>${staff.name}</td>
+        <td>${staff.team}</td>
+        <td>${staff.ot} hrs</td>
+        <td><span class="badge ${badgeClass}">${staff.status}</span></td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+    // 5. Dark Mode 切換邏輯
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      
+      // 更新按鈕文字
+      themeToggle.innerHTML = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+
+      // 根據主題更新 Chart.js 內的文字與格線顏色
+      const textColor = isDark ? '#A0A0A0' : '#777777';
+      const gridColor = isDark ? '#333333' : '#EAEAEA';
+      const barColorWarning = isDark ? '#FC6A67' : '#D9534F';
+
+      // 更新 Trend Chart 顏色
+      trendChart.options.scales.x.ticks.color = textColor;
+      trendChart.options.scales.y.ticks.color = textColor;
+      trendChart.options.scales.y.grid.color = gridColor;
+      trendChart.options.plugins.legend.labels.color = textColor;
+      trendChart.update();
+
+      // 更新 Top Staff Chart 顏色
+      topStaffChart.options.scales.y.ticks.color = textColor;
+      topStaffChart.data.datasets[0].backgroundColor = barColorWarning;
+      topStaffChart.update();
+    });
+  </script>
+</body>
+</html>
